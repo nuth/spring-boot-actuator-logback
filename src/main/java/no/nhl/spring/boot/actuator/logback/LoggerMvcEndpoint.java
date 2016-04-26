@@ -1,12 +1,13 @@
 package no.nhl.spring.boot.actuator.logback;
 
-import no.nhl.spring.boot.actuator.logback.resource.LoggerResourceAssembler;
-import no.nhl.spring.boot.actuator.logback.resource.LoggerResource;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.List;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import no.nhl.spring.boot.actuator.logback.resource.LoggerResource;
+import no.nhl.spring.boot.actuator.logback.resource.LoggerResourceAssembler;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,12 +18,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.HateoasPageableHandlerMethodArgumentResolver;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.data.web.PagedResourcesAssembler;
-import org.springframework.hateoas.ExposesResourceFor;
 import org.springframework.hateoas.Resource;
 import org.springframework.hateoas.Resources;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -35,8 +34,6 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
  *
  * @author Nikolai Luthman <nikolai dot luthman at inmeta dot no>
  */
-@Component
-@ExposesResourceFor(LoggerResource.class)
 public class LoggerMvcEndpoint extends EndpointMvcAdapter {
 
     @Value("${management.context-path:/}")
@@ -44,8 +41,7 @@ public class LoggerMvcEndpoint extends EndpointMvcAdapter {
 
     private final LoggerEndpoint delegate;
 
-    @Autowired
-    private LoggerResourceAssembler loggerResourceAssembler;
+    private final LoggerResourceAssembler loggerResourceAssembler;
 
     @Autowired
     private HateoasPageableHandlerMethodArgumentResolver hphmar;
@@ -54,6 +50,7 @@ public class LoggerMvcEndpoint extends EndpointMvcAdapter {
     public LoggerMvcEndpoint(LoggerEndpoint delegate) {
         super(delegate);
         this.delegate = delegate;
+        this.loggerResourceAssembler = new LoggerResourceAssembler(delegate);
     }
 
     @RequestMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -69,22 +66,28 @@ public class LoggerMvcEndpoint extends EndpointMvcAdapter {
                         .pathSegment(delegate.getId())
                         .pathSegment("list")
                         .build().encode());
-        Stream<Logger> list = delegate.loggers().stream().parallel();
 
-        if (configured != null) {
-            list = list.filter(
-                    t -> t.iteratorForAppenders().hasNext() == configured);
-        }
+        Supplier<Stream<Logger>> supply = () -> {
+            Stream<Logger> list = delegate.loggers().stream().parallel();
 
-        final AtomicLong count = new AtomicLong(0);
-        list = list.peek(t -> count.incrementAndGet());
+            if (configured != null) {
+                list = list.filter(
+                        t -> t.iteratorForAppenders().hasNext() == configured);
+            }
 
-        list = list.skip(pageable.getOffset()).limit(pageable.getPageSize());
+            return list;
+        };
+
+        List<Logger> loggers = supply.get()
+                .skip(pageable.getOffset()).limit(pageable.getPageSize())
+                .collect(Collectors.toList());
+
+        long count = supply.get().count();
 
         Page<Logger> page = new PageImpl<>(
-                list.collect(Collectors.toList()),
+                loggers,
                 pageable,
-                count.intValue());
+                count);
 
         return ResponseEntity.ok(
                 pagedResourcesAssembler.toResource(

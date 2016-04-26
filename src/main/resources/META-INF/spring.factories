@@ -1,0 +1,3 @@
+org.springframework.boot.actuate.autoconfigure.ManagementContextConfiguration=\
+no.nhl.spring.boot.actuator.logback.autoconfigure.EndpointAutoConfiguration,\
+no.nhl.spring.boot.actuator.logback.autoconfigure.MvcEndpointAutoConfiguration
