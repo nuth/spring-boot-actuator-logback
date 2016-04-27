@@ -1,5 +1,6 @@
 package no.nhl.spring.boot.actuator.logback.resource;
 
+import no.nhl.slf4j.runtime.logger.level.LogLevel;
 import org.springframework.hateoas.ResourceSupport;
 
 /**

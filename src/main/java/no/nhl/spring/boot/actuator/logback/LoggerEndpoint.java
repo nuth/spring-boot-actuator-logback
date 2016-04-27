@@ -1,10 +1,10 @@
 package no.nhl.spring.boot.actuator.logback;
 
-import ch.qos.logback.classic.Logger;
-import ch.qos.logback.classic.LoggerContext;
 import java.util.List;
+import no.nhl.slf4j.runtime.logger.level.LogUtils;
+import no.nhl.slf4j.runtime.logger.level.LoggerInfo;
 import no.nhl.spring.boot.actuator.logback.resource.LogbackAdmin;
-import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.actuate.endpoint.AbstractEndpoint;
 
 /**
@@ -12,6 +12,9 @@ import org.springframework.boot.actuate.endpoint.AbstractEndpoint;
  * @author Nikolai Luthman <nikolai dot luthman at inmeta dot no>
  */
 public class LoggerEndpoint extends AbstractEndpoint<LogbackAdmin> {
+
+    @Autowired
+    private LogUtils logUtils;
 
     public LoggerEndpoint() {
         super("loggers");
@@ -21,15 +24,14 @@ public class LoggerEndpoint extends AbstractEndpoint<LogbackAdmin> {
     public LogbackAdmin invoke() {
         LogbackAdmin admin = new LogbackAdmin();
 
-        admin.setLoggers(((LoggerContext) LoggerFactory.getILoggerFactory()).getLoggerList().size());
-        admin.setConfigured(((LoggerContext) LoggerFactory.getILoggerFactory()).getLoggerList().stream().filter((Logger t) -> t.iteratorForAppenders().hasNext()).count());
+        admin.setLoggers(logUtils.getLoggers().size());
+        admin.setConfigured(logUtils.getLoggers().stream().filter(t -> t.getConfigured()).count());
 
         return admin;
     }
 
-    public List<Logger> loggers() {
-        LoggerContext loggerContext = (LoggerContext) LoggerFactory.getILoggerFactory();
-        return loggerContext.getLoggerList();
+    public List<LoggerInfo> loggers() {
+        return logUtils.getLoggers();
     }
 
 }

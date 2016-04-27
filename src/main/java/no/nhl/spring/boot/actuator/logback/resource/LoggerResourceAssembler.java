@@ -1,6 +1,6 @@
 package no.nhl.spring.boot.actuator.logback.resource;
 
-import ch.qos.logback.classic.Logger;
+import no.nhl.slf4j.runtime.logger.level.LoggerInfo;
 import no.nhl.spring.boot.actuator.logback.LoggerEndpoint;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.hateoas.Link;
@@ -12,7 +12,7 @@ import org.springframework.web.util.UriComponents;
  *
  * @author Nikolai Luthman <nikolai dot luthman at inmeta dot no>
  */
-public class LoggerResourceAssembler extends ResourceAssemblerSupport<Logger, LoggerResource> {
+public class LoggerResourceAssembler extends ResourceAssemblerSupport<LoggerInfo, LoggerResource> {
 
     @Value("${management.context-path:/}")
     private String managementContextPath;
@@ -24,25 +24,18 @@ public class LoggerResourceAssembler extends ResourceAssemblerSupport<Logger, Lo
     }
 
     @Override
-    public LoggerResource toResource(Logger t) {
+    public LoggerResource toResource(LoggerInfo t) {
         LoggerResource resource = new LoggerResource();
         UriComponents self = ServletUriComponentsBuilder.fromCurrentServletMapping()
                 .path(managementContextPath).pathSegment(endpoint.getId(), t.getName()).build();
 
         resource.add(new Link(self.toUriString(), "self"));
 
-        resource.setAdditive(t.isAdditive());
-        if (t.getLevel() != null) {
-            resource.setLevel(LogLevel.valueOf(t.getLevel().toString()));
-        }
-        if (t.getEffectiveLevel() != null) {
-            resource.setEffectiveLevel(LogLevel.valueOf(t.getEffectiveLevel().levelStr));
-        }
+        resource.setAdditive(t.getAdditive());
+        resource.setLevel(t.getLevel());
+        resource.setEffectiveLevel(t.getEffectiveLevel());
         resource.setName(t.getName());
-
-        if (t.iteratorForAppenders().hasNext()) {
-            resource.setConfigured(Boolean.TRUE);
-        }
+        resource.setConfigured(t.getConfigured());
 
         return resource;
     }

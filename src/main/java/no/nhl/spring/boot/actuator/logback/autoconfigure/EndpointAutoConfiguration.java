@@ -1,5 +1,6 @@
 package no.nhl.spring.boot.actuator.logback.autoconfigure;
 
+import no.nhl.slf4j.runtime.logger.level.LogUtils;
 import no.nhl.spring.boot.actuator.logback.LoggerEndpoint;
 import org.springframework.boot.actuate.autoconfigure.ManagementContextConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -14,6 +15,11 @@ public class EndpointAutoConfiguration {
     @Bean
     public LoggerEndpoint loggerEndpoint() {
         return new LoggerEndpoint();
+    }
+
+    @Bean
+    public LogUtils logUtils() {
+        return new LogUtils();
     }
 
 }

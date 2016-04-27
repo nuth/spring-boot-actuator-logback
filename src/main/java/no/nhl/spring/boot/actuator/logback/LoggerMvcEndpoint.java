@@ -1,14 +1,13 @@
 package no.nhl.spring.boot.actuator.logback;
 
-import ch.qos.logback.classic.Level;
-import ch.qos.logback.classic.Logger;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import no.nhl.slf4j.runtime.logger.level.LogUtils;
+import no.nhl.slf4j.runtime.logger.level.LoggerInfo;
 import no.nhl.spring.boot.actuator.logback.resource.LoggerResource;
 import no.nhl.spring.boot.actuator.logback.resource.LoggerResourceAssembler;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.actuate.endpoint.mvc.EndpointMvcAdapter;
@@ -47,6 +46,9 @@ public class LoggerMvcEndpoint extends EndpointMvcAdapter {
     private HateoasPageableHandlerMethodArgumentResolver hphmar;
 
     @Autowired
+    private LogUtils logUtils;
+
+    @Autowired
     public LoggerMvcEndpoint(LoggerEndpoint delegate) {
         super(delegate);
         this.delegate = delegate;
@@ -67,24 +69,24 @@ public class LoggerMvcEndpoint extends EndpointMvcAdapter {
                         .pathSegment("list")
                         .build().encode());
 
-        Supplier<Stream<Logger>> supply = () -> {
-            Stream<Logger> list = delegate.loggers().stream().parallel();
+        Supplier<Stream<LoggerInfo>> supply = () -> {
+            Stream<LoggerInfo> list = delegate.loggers().stream().parallel();
 
             if (configured != null) {
                 list = list.filter(
-                        t -> t.iteratorForAppenders().hasNext() == configured);
+                        t -> t.getConfigured() == configured);
             }
 
             return list;
         };
 
-        List<Logger> loggers = supply.get()
+        List<LoggerInfo> loggers = supply.get()
                 .skip(pageable.getOffset()).limit(pageable.getPageSize())
                 .collect(Collectors.toList());
 
         long count = supply.get().count();
 
-        Page<Logger> page = new PageImpl<>(
+        Page<LoggerInfo> page = new PageImpl<>(
                 loggers,
                 pageable,
                 count);
@@ -103,10 +105,13 @@ public class LoggerMvcEndpoint extends EndpointMvcAdapter {
     public final ResponseEntity<LoggerResource> post(
             @PathVariable final String id,
             @RequestBody final LoggerResource resource) {
-        Logger logger = (Logger) LoggerFactory.getLogger(id);
-        logger.setLevel(Level.toLevel(resource.getLevel().getLevel()));
-        logger.setAdditive(resource.getAdditive());
-        return ResponseEntity.ok(loggerResourceAssembler.toResource(logger));
+
+        LoggerInfo loggerInfo = logUtils.getLogger(id);
+        loggerInfo.setLevel(resource.getLevel());
+        return ResponseEntity.ok(
+                loggerResourceAssembler.
+                toResource(
+                        logUtils.setLoggerLevel(loggerInfo)));
     }
 
     @RequestMapping(
@@ -115,8 +120,7 @@ public class LoggerMvcEndpoint extends EndpointMvcAdapter {
             method = {RequestMethod.GET, RequestMethod.HEAD})
     @ResponseBody
     public final ResponseEntity<LoggerResource> get(@PathVariable final String id) {
-        Logger logger = (Logger) LoggerFactory.getLogger(id);
-        return ResponseEntity.ok(loggerResourceAssembler.toResource(logger));
+        return ResponseEntity.ok(loggerResourceAssembler.toResource(logUtils.getLogger(id)));
     }
 
 }
